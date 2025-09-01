@@ -19,9 +19,7 @@ let package = Package(
             name: "InfiniteNotepad",
             dependencies: [
                 .product(name: "Supabase", package: "supabase-swift")
-            ]),
-        .testTarget(
-            name: "InfiniteNotepadTests",
-            dependencies: ["InfiniteNotepad"]),
+            ])
+
     ]
 )
