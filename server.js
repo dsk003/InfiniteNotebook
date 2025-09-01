@@ -51,6 +51,9 @@ app.post('/api/auth/signup', async (req, res) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${req.protocol}://${req.get('host')}`
+      }
     });
 
     if (error) {
@@ -59,17 +62,27 @@ app.post('/api/auth/signup', async (req, res) => {
     }
 
     if (data.user) {
-      // Get the session token
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !sessionData.session) {
-        return res.status(400).json({ error: 'Failed to create session' });
-      }
+      // Check if email confirmation is required
+      if (data.user.email_confirmed_at) {
+        // User is immediately confirmed, get session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !sessionData.session) {
+          return res.status(400).json({ error: 'Failed to create session' });
+        }
 
-      res.json({
-        user: data.user,
-        token: sessionData.session.access_token
-      });
+        res.json({
+          user: data.user,
+          token: sessionData.session.access_token
+        });
+      } else {
+        // Email confirmation required
+        res.json({
+          message: 'Please check your email and click the confirmation link to complete signup.',
+          user: data.user,
+          requiresConfirmation: true
+        });
+      }
     } else {
       res.status(400).json({ error: 'Signup failed' });
     }

@@ -113,11 +113,15 @@ class NotepadApp {
             const data = await response.json();
 
             if (response.ok) {
-                localStorage.setItem('auth_token', data.token);
-                this.currentUser = data.user;
-                this.showApp();
-                this.loadNotes();
-                this.hideError();
+                if (data.requiresConfirmation) {
+                    this.showError('Please check your email and click the confirmation link to complete signup.');
+                } else {
+                    localStorage.setItem('auth_token', data.token);
+                    this.currentUser = data.user;
+                    this.showApp();
+                    this.loadNotes();
+                    this.hideError();
+                }
             } else {
                 this.showError(data.error || 'Signup failed');
             }
