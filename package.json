@@ -8,6 +8,8 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.56.1",
+    "dotenv": "^17.2.1",
     "express": "^4.18.2"
   },
   "devDependencies": {
@@ -16,7 +18,11 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["notepad", "notes", "web-app"],
+  "keywords": [
+    "notepad",
+    "notes",
+    "web-app"
+  ],
   "author": "",
   "license": "MIT"
 }
