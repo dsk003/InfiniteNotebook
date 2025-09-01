@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Notepad</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📝 Infinite Notepad</h1>
+            <div class="header-actions">
+                <button id="newNoteBtn" class="btn btn-primary">+ New Note</button>
+                <button id="saveAllBtn" class="btn btn-secondary">💾 Save All</button>
+            </div>
+        </header>
+        
+        <main class="main-content">
+            <div id="notesContainer" class="notes-container">
+                <!-- Notes will be dynamically added here -->
+            </div>
+        </main>
+        
+        <div id="emptyState" class="empty-state">
+            <div class="empty-state-content">
+                <h2>Start Writing</h2>
+                <p>Click "New Note" to create your first note</p>
+                <button id="createFirstNote" class="btn btn-primary">Create First Note</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
