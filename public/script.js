@@ -1,25 +1,189 @@
 class NotepadApp {
     constructor() {
         this.notes = {};
+        this.currentUser = null;
+        this.supabase = null;
         this.init();
     }
 
     init() {
+        this.initSupabase();
         this.bindEvents();
-        this.loadNotes();
+        this.checkAuthState();
+    }
+
+    initSupabase() {
+        // Get Supabase config from environment (you'll need to set these in your HTML or pass from server)
+        const supabaseUrl = window.location.origin.includes('localhost') 
+            ? 'http://localhost:3000' 
+            : window.location.origin;
+        
+        // For now, we'll use the server as a proxy for Supabase auth
+        this.supabaseUrl = supabaseUrl;
     }
 
     bindEvents() {
+        // Auth form events
+        document.getElementById('loginFormElement').addEventListener('submit', (e) => this.handleLogin(e));
+        document.getElementById('signupFormElement').addEventListener('submit', (e) => this.handleSignup(e));
+        document.getElementById('showSignup').addEventListener('click', (e) => this.showSignupForm(e));
+        document.getElementById('showLogin').addEventListener('click', (e) => this.showLoginForm(e));
+        document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
+
+        // Note events
         document.getElementById('newNoteBtn').addEventListener('click', () => this.createNote());
         document.getElementById('createFirstNote').addEventListener('click', () => this.createNote());
         document.getElementById('saveAllBtn').addEventListener('click', () => this.saveAllNotes());
     }
 
+    async checkAuthState() {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            try {
+                const response = await fetch(`${this.supabaseUrl}/api/auth/verify`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    this.currentUser = userData.user;
+                    this.showApp();
+                    this.loadNotes();
+                } else {
+                    localStorage.removeItem('auth_token');
+                    this.showAuth();
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                localStorage.removeItem('auth_token');
+                this.showAuth();
+            }
+        } else {
+            this.showAuth();
+        }
+    }
+
+    async handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            const response = await fetch(`${this.supabaseUrl}/api/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('auth_token', data.token);
+                this.currentUser = data.user;
+                this.showApp();
+                this.loadNotes();
+                this.hideError();
+            } else {
+                this.showError(data.error || 'Login failed');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showError('Login failed. Please try again.');
+        }
+    }
+
+    async handleSignup(e) {
+        e.preventDefault();
+        const email = document.getElementById('signupEmail').value;
+        const password = document.getElementById('signupPassword').value;
+
+        try {
+            const response = await fetch(`${this.supabaseUrl}/api/auth/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('auth_token', data.token);
+                this.currentUser = data.user;
+                this.showApp();
+                this.loadNotes();
+                this.hideError();
+            } else {
+                this.showError(data.error || 'Signup failed');
+            }
+        } catch (error) {
+            console.error('Signup error:', error);
+            this.showError('Signup failed. Please try again.');
+        }
+    }
+
+    handleLogout() {
+        localStorage.removeItem('auth_token');
+        this.currentUser = null;
+        this.notes = {};
+        this.showAuth();
+    }
+
+    showAuth() {
+        document.getElementById('authSection').classList.remove('hidden');
+        document.getElementById('appSection').classList.add('hidden');
+    }
+
+    showApp() {
+        document.getElementById('authSection').classList.add('hidden');
+        document.getElementById('appSection').classList.remove('hidden');
+        document.getElementById('userEmail').textContent = this.currentUser.email;
+    }
+
+    showSignupForm(e) {
+        e.preventDefault();
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('signupForm').classList.remove('hidden');
+        this.hideError();
+    }
+
+    showLoginForm(e) {
+        e.preventDefault();
+        document.getElementById('signupForm').classList.add('hidden');
+        document.getElementById('loginForm').classList.remove('hidden');
+        this.hideError();
+    }
+
+    showError(message) {
+        const errorDiv = document.getElementById('authError');
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+
+    hideError() {
+        document.getElementById('authError').classList.add('hidden');
+    }
+
     async loadNotes() {
         try {
-            const response = await fetch('/api/notes');
-            this.notes = await response.json();
-            this.renderNotes();
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch('/api/notes', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                this.notes = await response.json();
+                this.renderNotes();
+            } else if (response.status === 401) {
+                this.handleLogout();
+            }
         } catch (error) {
             console.error('Error loading notes:', error);
         }
@@ -27,18 +191,24 @@ class NotepadApp {
 
     async createNote() {
         try {
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/api/notes', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ content: '' })
             });
             
-            const newNote = await response.json();
-            this.notes[newNote.id] = newNote;
-            this.renderNotes();
-            this.focusLatestNote();
+            if (response.ok) {
+                const newNote = await response.json();
+                this.notes[newNote.id] = newNote;
+                this.renderNotes();
+                this.focusLatestNote();
+            } else if (response.status === 401) {
+                this.handleLogout();
+            }
         } catch (error) {
             console.error('Error creating note:', error);
         }
@@ -46,10 +216,12 @@ class NotepadApp {
 
     async updateNote(noteId, content) {
         try {
+            const token = localStorage.getItem('auth_token');
             const response = await fetch(`/api/notes/${noteId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ content })
             });
@@ -57,6 +229,8 @@ class NotepadApp {
             if (response.ok) {
                 const updatedNote = await response.json();
                 this.notes[noteId] = updatedNote;
+            } else if (response.status === 401) {
+                this.handleLogout();
             }
         } catch (error) {
             console.error('Error updating note:', error);
@@ -69,13 +243,19 @@ class NotepadApp {
         }
 
         try {
+            const token = localStorage.getItem('auth_token');
             const response = await fetch(`/api/notes/${noteId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
             
             if (response.ok) {
                 delete this.notes[noteId];
                 this.renderNotes();
+            } else if (response.status === 401) {
+                this.handleLogout();
             }
         } catch (error) {
             console.error('Error deleting note:', error);

@@ -21,12 +21,103 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 app.use(express.json());
 app.use(express.static('public'));
 
+// Authentication middleware
+const authenticateUser = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  const token = authHeader.substring(7);
+  
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(401).json({ error: 'Authentication failed' });
+  }
+};
+
+// Authentication Routes
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Signup error:', error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (data.user) {
+      // Get the session token
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData.session) {
+        return res.status(400).json({ error: 'Failed to create session' });
+      }
+
+      res.json({
+        user: data.user,
+        token: sessionData.session.access_token
+      });
+    } else {
+      res.status(400).json({ error: 'Signup failed' });
+    }
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Login error:', error);
+      return res.status(401).json({ error: error.message });
+    }
+
+    if (data.user && data.session) {
+      res.json({
+        user: data.user,
+        token: data.session.access_token
+      });
+    } else {
+      res.status(401).json({ error: 'Login failed' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/auth/verify', authenticateUser, (req, res) => {
+  res.json({ user: req.user });
+});
+
 // API Routes
-app.get('/api/notes', async (req, res) => {
+app.get('/api/notes', authenticateUser, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('notes')
       .select('*')
+      .eq('user_id', req.user.id)
       .order('updated_at', { ascending: false });
     
     if (error) {
@@ -52,14 +143,17 @@ app.get('/api/notes', async (req, res) => {
   }
 });
 
-app.post('/api/notes', async (req, res) => {
+app.post('/api/notes', authenticateUser, async (req, res) => {
   try {
     const { content } = req.body;
     
     const { data, error } = await supabase
       .from('notes')
       .insert([
-        { content: content || '' }
+        { 
+          content: content || '',
+          user_id: req.user.id
+        }
       ])
       .select()
       .single();
@@ -84,7 +178,7 @@ app.post('/api/notes', async (req, res) => {
   }
 });
 
-app.put('/api/notes/:id', async (req, res) => {
+app.put('/api/notes/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params;
     const { content } = req.body;
@@ -93,6 +187,7 @@ app.put('/api/notes/:id', async (req, res) => {
       .from('notes')
       .update({ content: content || '' })
       .eq('id', id)
+      .eq('user_id', req.user.id)
       .select()
       .single();
     
@@ -119,14 +214,15 @@ app.put('/api/notes/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/notes/:id', async (req, res) => {
+app.delete('/api/notes/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params;
     
     const { error } = await supabase
       .from('notes')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', req.user.id);
     
     if (error) {
       console.error('Error deleting note:', error);

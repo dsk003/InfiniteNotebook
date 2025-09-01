@@ -4,10 +4,12 @@ A simple, beautiful web application for taking unlimited notes. Built with Node.
 
 ## Features
 
+- 🔐 **User Authentication**: Secure login/signup with email and password
 - ✨ **Infinite Notes**: Create as many notes as you want
 - 💾 **Auto-save**: Notes are automatically saved as you type
 - 🗄️ **Persistent Storage**: Notes are stored in Supabase database
 - ⏰ **Timestamps**: Each note has creation and update timestamps
+- 👤 **Personal Notes**: Each user can only see and edit their own notes
 - 🎨 **Modern UI**: Beautiful, responsive design with glassmorphism effects
 - 📱 **Mobile-friendly**: Works perfectly on all devices
 - 🚀 **Fast**: Lightweight and fast loading
@@ -17,6 +19,7 @@ A simple, beautiful web application for taking unlimited notes. Built with Node.
 
 - **Backend**: Node.js + Express
 - **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
 - **Frontend**: Vanilla HTML, CSS, JavaScript
 - **Styling**: Modern CSS with glassmorphism design
 - **Deployment**: Render.com ready
@@ -28,6 +31,7 @@ Before running this application, you need to set up a Supabase project:
 1. **Create a Supabase account** at [supabase.com](https://supabase.com)
 2. **Create a new project** in your Supabase dashboard
 3. **Get your project credentials** (URL and anon key)
+4. **Enable Authentication** in your Supabase project (it's enabled by default)
 
 ## Local Development
 
@@ -56,6 +60,7 @@ Before running this application, you need to set up a Supabase project:
    npm run dev
    ```
 6. **Open your browser** and go to `http://localhost:3000`
+7. **Create an account** using the signup form or sign in if you already have one
 
 ## Deployment on Render
 
@@ -98,15 +103,23 @@ Before running this application, you need to set up a Supabase project:
 
 ## How to Use
 
-1. **Create a new note** by clicking the "New Note" button
-2. **Start typing** in any note - it will auto-save after 1 second
-3. **Delete notes** using the delete button on each note
-4. **Save all notes** manually using the "Save All" button
-5. **Notes are sorted** by most recently updated
+1. **Sign up** for a new account or **sign in** with existing credentials
+2. **Create a new note** by clicking the "New Note" button
+3. **Start typing** in any note - it will auto-save after 1 second
+4. **Delete notes** using the delete button on each note
+5. **Save all notes** manually using the "Save All" button
+6. **Notes are sorted** by most recently updated
+7. **Logout** when you're done to keep your notes secure
 
 ## API Endpoints
 
-- `GET /api/notes` - Get all notes
+### Authentication
+- `POST /api/auth/signup` - Create a new user account
+- `POST /api/auth/login` - Sign in with email and password
+- `GET /api/auth/verify` - Verify authentication token
+
+### Notes (requires authentication)
+- `GET /api/notes` - Get all notes for the authenticated user
 - `POST /api/notes` - Create a new note
 - `PUT /api/notes/:id` - Update a note
 - `DELETE /api/notes/:id` - Delete a note
@@ -118,6 +131,7 @@ The application uses a PostgreSQL database through Supabase with the following s
 ```sql
 CREATE TABLE notes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     content TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -131,6 +145,8 @@ Notes are now stored in a Supabase PostgreSQL database, which means:
 - ✅ **Scalable**: Can handle thousands of notes
 - ✅ **Reliable**: Backed by PostgreSQL
 - ✅ **Timestamps**: Automatic creation and update timestamps
+- ✅ **Secure**: Each user can only access their own notes
+- ✅ **Authenticated**: All operations require valid user authentication
 
 ## Customization
 

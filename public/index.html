@@ -9,25 +9,76 @@
 </head>
 <body>
     <div class="container">
-        <header class="header">
-            <h1>📝 Infinite Notepad</h1>
-            <div class="header-actions">
-                <button id="newNoteBtn" class="btn btn-primary">+ New Note</button>
-                <button id="saveAllBtn" class="btn btn-secondary">💾 Save All</button>
+        <!-- Authentication Section -->
+        <div id="authSection" class="auth-section">
+            <div class="auth-container">
+                <h1>📝 Infinite Notepad</h1>
+                <p class="auth-subtitle">Sign in to access your personal notes</p>
+                
+                <!-- Login Form -->
+                <div id="loginForm" class="auth-form">
+                    <h2>Sign In</h2>
+                    <form id="loginFormElement">
+                        <div class="form-group">
+                            <input type="email" id="loginEmail" placeholder="Email" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="password" id="loginPassword" placeholder="Password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+                    </form>
+                    <p class="auth-switch">
+                        Don't have an account? 
+                        <a href="#" id="showSignup">Sign up</a>
+                    </p>
+                </div>
+
+                <!-- Signup Form -->
+                <div id="signupForm" class="auth-form hidden">
+                    <h2>Sign Up</h2>
+                    <form id="signupFormElement">
+                        <div class="form-group">
+                            <input type="email" id="signupEmail" placeholder="Email" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="password" id="signupPassword" placeholder="Password (min 6 characters)" required minlength="6">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Sign Up</button>
+                    </form>
+                    <p class="auth-switch">
+                        Already have an account? 
+                        <a href="#" id="showLogin">Sign in</a>
+                    </p>
+                </div>
+
+                <div id="authError" class="auth-error hidden"></div>
             </div>
-        </header>
+        </div>
+
+        <!-- Main App Section -->
+        <div id="appSection" class="app-section hidden">
+            <header class="header">
+                <h1>📝 Infinite Notepad</h1>
+                <div class="header-actions">
+                    <span id="userEmail" class="user-info"></span>
+                    <button id="newNoteBtn" class="btn btn-primary">+ New Note</button>
+                    <button id="saveAllBtn" class="btn btn-secondary">💾 Save All</button>
+                    <button id="logoutBtn" class="btn btn-danger">Logout</button>
+                </div>
+            </header>
         
-        <main class="main-content">
-            <div id="notesContainer" class="notes-container">
-                <!-- Notes will be dynamically added here -->
-            </div>
-        </main>
-        
-        <div id="emptyState" class="empty-state">
-            <div class="empty-state-content">
-                <h2>Start Writing</h2>
-                <p>Click "New Note" to create your first note</p>
-                <button id="createFirstNote" class="btn btn-primary">Create First Note</button>
+            <main class="main-content">
+                <div id="notesContainer" class="notes-container">
+                    <!-- Notes will be dynamically added here -->
+                </div>
+            </main>
+            
+            <div id="emptyState" class="empty-state">
+                <div class="empty-state-content">
+                    <h2>Start Writing</h2>
+                    <p>Click "New Note" to create your first note</p>
+                    <button id="createFirstNote" class="btn btn-primary">Create First Note</button>
+                </div>
             </div>
         </div>
     </div>
