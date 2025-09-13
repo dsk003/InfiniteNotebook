@@ -273,17 +273,18 @@ app.get('/api/search', authenticateUser, async (req, res) => {
     
     console.log('🔍 Full-text search for user:', req.user.id, 'query:', query);
     
-    // Sanitize the query for PostgreSQL full-text search
-    const sanitizedQuery = query.trim().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' & ');
+    // Clean the query but keep it simple for textSearch
+    const sanitizedQuery = query.trim().replace(/'/g, "''"); // Escape single quotes
     
     console.log('🧹 Sanitized query:', sanitizedQuery);
     
-    // Use the search_notes function we created
+    // Use Supabase's built-in textSearch method
     const { data, error } = await supabase
-      .rpc('search_notes', {
-        search_query: sanitizedQuery,
-        user_uuid: req.user.id
-      });
+      .from('notes')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .textSearch('content', `'${sanitizedQuery}'`)
+      .order('updated_at', { ascending: false });
     
     if (error) {
       console.error('❌ Full-text search error:', error);
@@ -299,8 +300,7 @@ app.get('/api/search', authenticateUser, async (req, res) => {
         id: note.id,
         content: note.content,
         createdAt: note.created_at,
-        updatedAt: note.updated_at,
-        rank: note.rank // Include search relevance rank
+        updatedAt: note.updated_at
       };
     });
     
@@ -322,14 +322,15 @@ app.get('/api/search/partial', authenticateUser, async (req, res) => {
     
     console.log('🔍 Partial search for user:', req.user.id, 'query:', query);
     
-    // For partial search, we'll use the last word as prefix
-    const sanitizedQuery = query.trim().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ');
+    // For partial search, escape quotes and keep it simple
+    const sanitizedQuery = query.trim().replace(/'/g, "''");
     
     const { data, error } = await supabase
-      .rpc('search_notes_partial', {
-        search_query: sanitizedQuery,
-        user_uuid: req.user.id
-      });
+      .from('notes')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .textSearch('content', `'${sanitizedQuery}':*`)
+      .order('updated_at', { ascending: false });
     
     if (error) {
       console.error('❌ Partial search error:', error);
@@ -345,8 +346,7 @@ app.get('/api/search/partial', authenticateUser, async (req, res) => {
         id: note.id,
         content: note.content,
         createdAt: note.created_at,
-        updatedAt: note.updated_at,
-        rank: note.rank
+        updatedAt: note.updated_at
       };
     });
     
