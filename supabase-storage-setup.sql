@@ -108,3 +108,4 @@ CREATE TRIGGER cleanup_note_media_trigger
     FOR EACH ROW
     EXECUTE FUNCTION cleanup_note_media();
 
+    
