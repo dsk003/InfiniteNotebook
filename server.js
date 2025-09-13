@@ -23,22 +23,29 @@ app.use(express.static('public'));
 
 // Authentication middleware
 const authenticateUser = async (req, res, next) => {
+  console.log('🔐 Authentication check for:', req.method, req.path);
+  
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('❌ No authorization header provided');
     return res.status(401).json({ error: 'No token provided' });
   }
 
   const token = authHeader.substring(7);
+  console.log('🎫 Token received (first 20 chars):', token.substring(0, 20) + '...');
   
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) {
+      console.log('❌ Token validation failed:', error?.message || 'No user returned');
       return res.status(401).json({ error: 'Invalid token' });
     }
+    
+    console.log('✅ User authenticated:', user.id, user.email);
     req.user = user;
     next();
   } catch (error) {
-    console.error('Auth error:', error);
+    console.error('💥 Unexpected auth error:', error);
     return res.status(401).json({ error: 'Authentication failed' });
   }
 };
@@ -127,6 +134,8 @@ app.get('/api/auth/verify', authenticateUser, (req, res) => {
 // API Routes
 app.get('/api/notes', authenticateUser, async (req, res) => {
   try {
+    console.log('📝 Fetching notes for user:', req.user.id);
+    
     const { data, error } = await supabase
       .from('notes')
       .select('*')
@@ -134,9 +143,12 @@ app.get('/api/notes', authenticateUser, async (req, res) => {
       .order('updated_at', { ascending: false });
     
     if (error) {
-      console.error('Error fetching notes:', error);
+      console.error('❌ Error fetching notes:', error);
       return res.status(500).json({ error: 'Failed to fetch notes' });
     }
+    
+    console.log('✅ Notes query successful. Found:', data?.length || 0, 'notes');
+    console.log('📊 Raw notes data:', JSON.stringify(data, null, 2));
     
     // Transform the data to match the frontend expectations
     const transformedNotes = {};
@@ -149,9 +161,10 @@ app.get('/api/notes', authenticateUser, async (req, res) => {
       };
     });
     
+    console.log('🔄 Transformed notes:', JSON.stringify(transformedNotes, null, 2));
     res.json(transformedNotes);
   } catch (error) {
-    console.error('Error fetching notes:', error);
+    console.error('💥 Unexpected error fetching notes:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
