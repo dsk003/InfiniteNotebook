@@ -18,48 +18,61 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Helper function to ensure the storage bucket exists
-async function ensureBucketExists(supabaseClient) {
+// Helper function to verify the storage bucket exists
+async function verifyBucketExists(supabaseClient) {
   try {
-    // Check if bucket exists
+    // First, try to list buckets to see what's available
     const { data: buckets, error: listError } = await supabaseClient.storage.listBuckets();
     
     if (listError) {
       console.error('❌ Error listing buckets:', listError);
-      return false;
+      // If we can't list buckets, try to test the bucket directly
+      return await testBucketAccess(supabaseClient);
     }
     
     console.log('📋 Available buckets:', buckets.map(b => b.name).join(', '));
     
     const bucketExists = buckets.some(bucket => bucket.name === 'note-media');
     
-    if (!bucketExists) {
-      console.log('📦 Creating note-media storage bucket...');
-      
-      // Create the bucket
-      const { data, error } = await supabaseClient.storage.createBucket('note-media', {
-        public: false,
-        fileSizeLimit: 52428800, // 50MB
-        allowedMimeTypes: [
-          'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-          'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3',
-          'video/mp4', 'video/webm', 'video/quicktime'
-        ]
-      });
-      
-      if (error) {
-        console.error('❌ Error creating bucket:', error);
+    if (bucketExists) {
+      console.log('✅ Storage bucket "note-media" found and ready');
+      return true;
+    } else {
+      console.log('❌ Storage bucket "note-media" not found in bucket list');
+      // Try to test direct access anyway, in case listing is restricted
+      return await testBucketAccess(supabaseClient);
+    }
+  } catch (error) {
+    console.error('💥 Error verifying bucket exists:', error);
+    // Try direct bucket access as fallback
+    return await testBucketAccess(supabaseClient);
+  }
+}
+
+// Test if we can access the bucket directly (fallback method)
+async function testBucketAccess(supabaseClient) {
+  try {
+    console.log('🔍 Testing direct bucket access...');
+    
+    // Try to list files in the bucket (this will work if bucket exists and we have access)
+    const { data, error } = await supabaseClient.storage
+      .from('note-media')
+      .list('', { limit: 1 });
+    
+    if (error) {
+      if (error.message.includes('Bucket not found')) {
+        console.log('❌ Bucket "note-media" does not exist');
         return false;
       } else {
-        console.log('✅ Storage bucket created successfully');
-        return true;
+        console.log('✅ Bucket exists but listing failed (this is OK):', error.message);
+        return true; // Bucket exists, we just can't list (probably due to RLS)
       }
     } else {
-      console.log('✅ Storage bucket "note-media" already exists');
+      console.log('✅ Bucket "note-media" is accessible');
       return true;
     }
   } catch (error) {
-    console.error('💥 Error ensuring bucket exists:', error);
+    console.error('💥 Error testing bucket access:', error);
     return false;
   }
 }
@@ -429,37 +442,21 @@ app.get('/api/search/partial', authenticateUser, async (req, res) => {
 // Storage Bucket Management
 app.post('/api/storage/setup', authenticateUser, async (req, res) => {
   try {
-    console.log('🔧 Setting up storage bucket for user:', req.user.id);
+    console.log('🔧 Verifying storage setup for user:', req.user.id);
     
-    await ensureBucketExists(supabase);
-    
-    // Also run the database setup if needed
-    const { error: schemaError } = await supabase.rpc('exec', {
-      sql: `
-        CREATE TABLE IF NOT EXISTS note_media (
-          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-          note_id UUID REFERENCES notes(id) ON DELETE CASCADE,
-          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-          file_name TEXT NOT NULL,
-          file_path TEXT NOT NULL,
-          file_type TEXT NOT NULL,
-          file_size BIGINT,
-          mime_type TEXT,
-          storage_bucket TEXT NOT NULL DEFAULT 'note-media',
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-      `
-    });
+    const bucketReady = await verifyBucketExists(supabase);
     
     res.json({ 
-      success: true, 
-      message: 'Storage setup completed successfully'
+      success: bucketReady, 
+      message: bucketReady ? 
+        'Storage bucket is accessible and ready' : 
+        'Storage bucket not found. Please create "note-media" bucket in Supabase dashboard.',
+      bucketExists: bucketReady
     });
     
   } catch (error) {
-    console.error('💥 Storage setup error:', error);
-    res.status(500).json({ error: 'Storage setup failed' });
+    console.error('💥 Storage verification error:', error);
+    res.status(500).json({ error: 'Storage verification failed' });
   }
 });
 
@@ -493,11 +490,13 @@ app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), a
     const fileName = `${timestamp}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const filePath = `${req.user.id}/${noteId}/${fileName}`;
     
-    // Ensure bucket exists before upload
-    const bucketReady = await ensureBucketExists(supabase);
+    // Verify bucket exists before upload (no creation attempt)
+    const bucketReady = await verifyBucketExists(supabase);
     if (!bucketReady) {
-      console.error('❌ Storage bucket not ready');
-      return res.status(500).json({ error: 'Storage not available' });
+      console.error('❌ Storage bucket not accessible');
+      return res.status(500).json({ 
+        error: 'Storage bucket not found. Please ensure the "note-media" bucket exists in your Supabase project.' 
+      });
     }
     
     console.log('📤 Uploading to path:', filePath);
