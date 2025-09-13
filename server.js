@@ -18,6 +18,46 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Helper function to ensure the storage bucket exists
+async function ensureBucketExists(supabaseClient) {
+  try {
+    // Check if bucket exists
+    const { data: buckets, error: listError } = await supabaseClient.storage.listBuckets();
+    
+    if (listError) {
+      console.error('❌ Error listing buckets:', listError);
+      return;
+    }
+    
+    const bucketExists = buckets.some(bucket => bucket.name === 'note-media');
+    
+    if (!bucketExists) {
+      console.log('📦 Creating note-media storage bucket...');
+      
+      // Create the bucket
+      const { data, error } = await supabaseClient.storage.createBucket('note-media', {
+        public: false,
+        fileSizeLimit: 52428800, // 50MB
+        allowedMimeTypes: [
+          'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+          'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3',
+          'video/mp4', 'video/webm', 'video/quicktime'
+        ]
+      });
+      
+      if (error) {
+        console.error('❌ Error creating bucket:', error);
+      } else {
+        console.log('✅ Storage bucket created successfully');
+      }
+    } else {
+      console.log('✅ Storage bucket already exists');
+    }
+  } catch (error) {
+    console.error('💥 Error ensuring bucket exists:', error);
+  }
+}
+
 // Configure multer for file uploads (memory storage)
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -380,6 +420,43 @@ app.get('/api/search/partial', authenticateUser, async (req, res) => {
   }
 });
 
+// Storage Bucket Management
+app.post('/api/storage/setup', authenticateUser, async (req, res) => {
+  try {
+    console.log('🔧 Setting up storage bucket for user:', req.user.id);
+    
+    await ensureBucketExists(supabase);
+    
+    // Also run the database setup if needed
+    const { error: schemaError } = await supabase.rpc('exec', {
+      sql: `
+        CREATE TABLE IF NOT EXISTS note_media (
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          note_id UUID REFERENCES notes(id) ON DELETE CASCADE,
+          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+          file_name TEXT NOT NULL,
+          file_path TEXT NOT NULL,
+          file_type TEXT NOT NULL,
+          file_size BIGINT,
+          mime_type TEXT,
+          storage_bucket TEXT NOT NULL DEFAULT 'note-media',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Storage setup completed successfully'
+    });
+    
+  } catch (error) {
+    console.error('💥 Storage setup error:', error);
+    res.status(500).json({ error: 'Storage setup failed' });
+  }
+});
+
 // Media Upload Routes
 app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), async (req, res) => {
   try {
@@ -409,6 +486,9 @@ app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), a
     const fileExtension = path.extname(file.originalname);
     const fileName = `${timestamp}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const filePath = `${req.user.id}/${noteId}/${fileName}`;
+    
+    // Ensure bucket exists before upload
+    await ensureBucketExists(supabase);
     
     // Upload file to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
