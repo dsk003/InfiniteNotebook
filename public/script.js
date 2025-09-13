@@ -28,16 +28,8 @@ class NotepadApp {
         document.getElementById('signupFormElement').addEventListener('submit', (e) => this.handleSignup(e));
         document.getElementById('showSignup').addEventListener('click', (e) => this.showSignupForm(e));
         document.getElementById('showLogin').addEventListener('click', (e) => this.showLoginForm(e));
-        document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
 
-        // Note events
-        document.getElementById('newNoteBtn').addEventListener('click', () => this.createNote());
-        document.getElementById('createFirstNote').addEventListener('click', () => this.createNote());
-        document.getElementById('saveAllBtn').addEventListener('click', () => this.saveAllNotes());
-        
-        // Search events
-        document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e));
-        document.getElementById('clearSearchBtn').addEventListener('click', () => this.clearSearch());
+        // App events (logout, notes, search) will be bound after login in bindAppEvents()
     }
 
     async checkAuthState() {
@@ -151,6 +143,24 @@ class NotepadApp {
         document.getElementById('authSection').classList.add('hidden');
         document.getElementById('appSection').classList.remove('hidden');
         document.getElementById('userEmail').textContent = this.currentUser.email;
+        this.bindAppEvents();
+    }
+
+    bindAppEvents() {
+        // Bind events for elements that are only available after login
+        document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
+        document.getElementById('newNoteBtn').addEventListener('click', () => this.createNote());
+        document.getElementById('saveAllBtn').addEventListener('click', () => this.saveAllNotes());
+        
+        // Search events
+        document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e));
+        document.getElementById('clearSearchBtn').addEventListener('click', () => this.clearSearch());
+        
+        // Bind createFirstNote event if it exists
+        const createFirstNoteBtn = document.getElementById('createFirstNote');
+        if (createFirstNoteBtn) {
+            createFirstNoteBtn.addEventListener('click', () => this.createNote());
+        }
     }
 
     showSignupForm(e) {
