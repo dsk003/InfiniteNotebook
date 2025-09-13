@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS note_media (
     file_type TEXT NOT NULL, -- 'image', 'audio', 'video'
     file_size BIGINT,
     mime_type TEXT,
-    storage_bucket TEXT NOT NULL DEFAULT 'note-media',
+    storage_bucket TEXT NOT NULL DEFAULT 'notes.media',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -47,32 +47,32 @@ CREATE POLICY "Users can delete their own media" ON note_media
 --     ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'video/mp4', 'video/webm', 'video/quicktime']
 -- );
 
--- Storage policies for the note-media bucket
+-- Storage policies for the notes.media bucket
 -- Users can upload files to their own folder
 CREATE POLICY "Users can upload media to their folder" ON storage.objects
     FOR INSERT WITH CHECK (
-        bucket_id = 'note-media' AND
+        bucket_id = 'notes.media' AND
         auth.uid()::text = (storage.foldername(name))[1]
     );
 
 -- Users can view files in their own folder
 CREATE POLICY "Users can view their own media" ON storage.objects
     FOR SELECT USING (
-        bucket_id = 'note-media' AND
+        bucket_id = 'notes.media' AND
         auth.uid()::text = (storage.foldername(name))[1]
     );
 
 -- Users can update files in their own folder
 CREATE POLICY "Users can update their own media" ON storage.objects
     FOR UPDATE USING (
-        bucket_id = 'note-media' AND
+        bucket_id = 'notes.media' AND
         auth.uid()::text = (storage.foldername(name))[1]
     );
 
 -- Users can delete files in their own folder
 CREATE POLICY "Users can delete their own media" ON storage.objects
     FOR DELETE USING (
-        bucket_id = 'note-media' AND
+        bucket_id = 'notes.media' AND
         auth.uid()::text = (storage.foldername(name))[1]
     );
 
@@ -107,3 +107,4 @@ CREATE TRIGGER cleanup_note_media_trigger
     AFTER DELETE ON notes
     FOR EACH ROW
     EXECUTE FUNCTION cleanup_note_media();
+
