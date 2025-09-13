@@ -313,6 +313,7 @@ class NotepadApp {
                 <div class="note-header">
                     <span class="note-id">#${note.id.slice(-6)}</span>
                     <div class="note-actions">
+                        <button class="btn btn-secondary media-btn" onclick="app.showMediaUpload('${note.id}')">📎 Media</button>
                         <button class="btn-danger" onclick="app.deleteNote('${note.id}')">Delete</button>
                     </div>
                 </div>
@@ -321,6 +322,29 @@ class NotepadApp {
                     placeholder="Start writing your note..."
                     data-note-id="${note.id}"
                 >${note.content}</textarea>
+                
+                <!-- Media Upload Section (initially hidden) -->
+                <div class="media-upload-section hidden" id="media-upload-${note.id}">
+                    <div class="media-upload-buttons">
+                        <input type="file" id="file-input-${note.id}" accept="image/*,audio/*,video/*" style="display: none;">
+                        <button class="btn btn-primary" onclick="document.getElementById('file-input-${note.id}').click()">
+                            📷 Choose File
+                        </button>
+                        <button class="btn btn-secondary" onclick="app.hideMediaUpload('${note.id}')">Cancel</button>
+                    </div>
+                    <div class="upload-progress hidden" id="upload-progress-${note.id}">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <span class="progress-text">Uploading...</span>
+                    </div>
+                </div>
+                
+                <!-- Media Display Section -->
+                <div class="note-media" id="media-${note.id}">
+                    <!-- Media files will be loaded here -->
+                </div>
+                
                 <div class="note-meta">
                     Created: ${createdDate}
                     ${isUpdated ? ` • Updated: ${updatedDate}` : ''}
@@ -330,6 +354,7 @@ class NotepadApp {
     }
 
     bindNoteEvents() {
+        // Bind textarea events
         document.querySelectorAll('.note-textarea').forEach(textarea => {
             let timeout;
             
@@ -344,6 +369,21 @@ class NotepadApp {
                 }, 1000);
             });
         });
+        
+        // Bind file input events
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const noteId = input.id.replace('file-input-', '');
+                if (e.target.files.length > 0) {
+                    this.uploadMedia(noteId, e.target.files[0]);
+                }
+            });
+        });
+        
+        // Load media for each note
+        Object.keys(this.notes).forEach(noteId => {
+            this.loadNoteMedia(noteId);
+        });
     }
 
     focusLatestNote() {
@@ -353,6 +393,213 @@ class NotepadApp {
                 latestNote.focus();
             }
         }, 100);
+    }
+
+    // Media Management
+    showMediaUpload(noteId) {
+        const uploadSection = document.getElementById(`media-upload-${noteId}`);
+        uploadSection.classList.remove('hidden');
+    }
+    
+    hideMediaUpload(noteId) {
+        const uploadSection = document.getElementById(`media-upload-${noteId}`);
+        const fileInput = document.getElementById(`file-input-${noteId}`);
+        uploadSection.classList.add('hidden');
+        fileInput.value = ''; // Clear file selection
+    }
+    
+    async uploadMedia(noteId, file) {
+        try {
+            console.log('📁 Uploading media:', file.name, 'to note:', noteId);
+            
+            // Show upload progress
+            const progressSection = document.getElementById(`upload-progress-${noteId}`);
+            const progressFill = progressSection.querySelector('.progress-fill');
+            const progressText = progressSection.querySelector('.progress-text');
+            
+            progressSection.classList.remove('hidden');
+            progressText.textContent = 'Uploading...';
+            
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`/api/media/upload/${noteId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            if (response.ok) {
+                const mediaData = await response.json();
+                console.log('✅ Media uploaded successfully:', mediaData);
+                
+                progressText.textContent = 'Upload complete!';
+                progressFill.style.width = '100%';
+                
+                // Hide upload section and reload media
+                setTimeout(() => {
+                    this.hideMediaUpload(noteId);
+                    progressSection.classList.add('hidden');
+                    progressFill.style.width = '0%';
+                    this.loadNoteMedia(noteId);
+                }, 1000);
+                
+            } else if (response.status === 401) {
+                this.handleLogout();
+            } else {
+                const error = await response.json();
+                console.error('❌ Upload failed:', error);
+                progressText.textContent = 'Upload failed!';
+                setTimeout(() => {
+                    progressSection.classList.add('hidden');
+                    progressFill.style.width = '0%';
+                }, 2000);
+            }
+            
+        } catch (error) {
+            console.error('💥 Upload error:', error);
+            const progressSection = document.getElementById(`upload-progress-${noteId}`);
+            const progressText = progressSection.querySelector('.progress-text');
+            progressText.textContent = 'Upload failed!';
+            setTimeout(() => {
+                progressSection.classList.add('hidden');
+            }, 2000);
+        }
+    }
+    
+    async loadNoteMedia(noteId) {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`/api/media/${noteId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const mediaFiles = await response.json();
+                this.renderNoteMedia(noteId, mediaFiles);
+            } else if (response.status === 401) {
+                this.handleLogout();
+            }
+        } catch (error) {
+            console.error('💥 Error loading media:', error);
+        }
+    }
+    
+    renderNoteMedia(noteId, mediaFiles) {
+        const mediaContainer = document.getElementById(`media-${noteId}`);
+        
+        if (mediaFiles.length === 0) {
+            mediaContainer.innerHTML = '';
+            return;
+        }
+        
+        const mediaHTML = mediaFiles.map(media => {
+            return `
+                <div class="media-item" data-media-id="${media.id}">
+                    <div class="media-preview" id="media-preview-${media.id}">
+                        ${this.createMediaPreview(media)}
+                    </div>
+                    <div class="media-info">
+                        <span class="media-name">${media.file_name}</span>
+                        <span class="media-size">${this.formatFileSize(media.file_size)}</span>
+                        <button class="btn btn-danger btn-small" onclick="app.deleteMedia('${media.id}', '${noteId}')">×</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        mediaContainer.innerHTML = mediaHTML;
+        
+        // Load actual media content
+        mediaFiles.forEach(media => {
+            this.loadMediaContent(media);
+        });
+    }
+    
+    createMediaPreview(media) {
+        switch (media.file_type) {
+            case 'image':
+                return `<img class="media-image loading" alt="${media.file_name}" />`;
+            case 'audio':
+                return `<audio class="media-audio" controls>Your browser does not support audio.</audio>`;
+            case 'video':
+                return `<video class="media-video" controls>Your browser does not support video.</video>`;
+            default:
+                return `<div class="media-file">📎 ${media.file_name}</div>`;
+        }
+    }
+    
+    async loadMediaContent(media) {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`/api/media/${media.id}/url`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const { signedUrl } = await response.json();
+                const previewElement = document.getElementById(`media-preview-${media.id}`);
+                
+                switch (media.file_type) {
+                    case 'image':
+                        const img = previewElement.querySelector('img');
+                        img.src = signedUrl;
+                        img.classList.remove('loading');
+                        break;
+                    case 'audio':
+                        const audio = previewElement.querySelector('audio');
+                        audio.src = signedUrl;
+                        break;
+                    case 'video':
+                        const video = previewElement.querySelector('video');
+                        video.src = signedUrl;
+                        break;
+                }
+            }
+        } catch (error) {
+            console.error('💥 Error loading media content:', error);
+        }
+    }
+    
+    async deleteMedia(mediaId, noteId) {
+        if (!confirm('Are you sure you want to delete this media file?')) {
+            return;
+        }
+        
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`/api/media/${mediaId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                console.log('✅ Media deleted successfully');
+                this.loadNoteMedia(noteId); // Reload media for the note
+            } else if (response.status === 401) {
+                this.handleLogout();
+            }
+        } catch (error) {
+            console.error('💥 Error deleting media:', error);
+        }
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     // Search functionality
