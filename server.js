@@ -60,7 +60,8 @@ async function testBucketAccess(supabaseClient) {
       .list('', { limit: 1 });
     
     if (error) {
-      if (error.message.includes('Bucket not found')) {
+      console.log('🔍 Bucket access test error:', error.message, 'Status:', error.status);
+      if (error.message.includes('Bucket not found') || error.status === 404) {
         console.log('❌ Bucket "note-media" does not exist');
         return false;
       } else {
@@ -457,6 +458,57 @@ app.post('/api/storage/setup', authenticateUser, async (req, res) => {
   } catch (error) {
     console.error('💥 Storage verification error:', error);
     res.status(500).json({ error: 'Storage verification failed' });
+  }
+});
+
+// Debug endpoint to list all buckets
+app.get('/api/storage/debug', authenticateUser, async (req, res) => {
+  try {
+    console.log('🐛 Debug: Listing all storage buckets for user:', req.user.id);
+    
+    // Try to list all buckets
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error('❌ Error listing buckets:', listError);
+      return res.json({
+        success: false,
+        error: listError.message,
+        buckets: null
+      });
+    }
+    
+    console.log('📋 Found buckets:', buckets.map(b => ({ name: b.name, id: b.id, public: b.public })));
+    
+    // Test access to each bucket
+    const bucketTests = [];
+    for (const bucket of buckets) {
+      try {
+        const { data, error } = await supabase.storage.from(bucket.name).list('', { limit: 1 });
+        bucketTests.push({
+          name: bucket.name,
+          accessible: !error,
+          error: error?.message || null
+        });
+      } catch (e) {
+        bucketTests.push({
+          name: bucket.name,
+          accessible: false,
+          error: e.message
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      buckets: buckets,
+      bucketTests: bucketTests,
+      lookingFor: 'note-media'
+    });
+    
+  } catch (error) {
+    console.error('💥 Storage debug error:', error);
+    res.status(500).json({ error: 'Storage debug failed' });
   }
 });
 
