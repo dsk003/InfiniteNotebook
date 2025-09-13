@@ -34,6 +34,10 @@ class NotepadApp {
         document.getElementById('newNoteBtn').addEventListener('click', () => this.createNote());
         document.getElementById('createFirstNote').addEventListener('click', () => this.createNote());
         document.getElementById('saveAllBtn').addEventListener('click', () => this.saveAllNotes());
+        
+        // Search events
+        document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e));
+        document.getElementById('clearSearchBtn').addEventListener('click', () => this.clearSearch());
     }
 
     async checkAuthState() {
@@ -338,6 +342,92 @@ class NotepadApp {
                 latestNote.focus();
             }
         }, 100);
+    }
+
+    // Search functionality
+    handleSearch(event) {
+        const searchTerm = event.target.value.toLowerCase().trim();
+        const clearBtn = document.getElementById('clearSearchBtn');
+        
+        // Show/hide clear button
+        if (searchTerm) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
+        
+        // Filter notes
+        this.filterNotes(searchTerm);
+    }
+    
+    filterNotes(searchTerm) {
+        const noteElements = document.querySelectorAll('.note');
+        let visibleCount = 0;
+        
+        noteElements.forEach(noteElement => {
+            const noteId = noteElement.dataset.noteId;
+            const note = this.notes[noteId];
+            
+            if (!searchTerm) {
+                // Show all notes if no search term
+                noteElement.style.display = 'block';
+                visibleCount++;
+            } else {
+                // Check if note content contains search term
+                const content = note ? note.content.toLowerCase() : '';
+                if (content.includes(searchTerm)) {
+                    noteElement.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    noteElement.style.display = 'none';
+                }
+            }
+        });
+        
+        // Show/hide empty state based on visible notes
+        this.updateEmptyState(visibleCount === 0 && Object.keys(this.notes).length > 0, searchTerm);
+    }
+    
+    clearSearch() {
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearSearchBtn');
+        
+        searchInput.value = '';
+        clearBtn.classList.add('hidden');
+        
+        // Show all notes
+        this.filterNotes('');
+    }
+    
+    updateEmptyState(showNoResults, searchTerm) {
+        const emptyState = document.getElementById('emptyState');
+        const emptyStateContent = emptyState.querySelector('.empty-state-content');
+        
+        if (showNoResults) {
+            // Show "no results" state
+            emptyStateContent.innerHTML = `
+                <h2>No Results Found</h2>
+                <p>No notes match your search for "<strong>${searchTerm}</strong>"</p>
+                <button id="clearSearchFromEmpty" class="btn btn-primary">Clear Search</button>
+            `;
+            emptyState.classList.remove('hidden');
+            
+            // Add event listener for clear search button
+            document.getElementById('clearSearchFromEmpty').addEventListener('click', () => this.clearSearch());
+        } else if (Object.keys(this.notes).length === 0) {
+            // Show regular empty state
+            emptyStateContent.innerHTML = `
+                <h2>Start Writing</h2>
+                <p>Click "New Note" to create your first note</p>
+                <button id="createFirstNote" class="btn btn-primary">Create First Note</button>
+            `;
+            emptyState.classList.remove('hidden');
+            
+            // Re-bind the create first note event
+            document.getElementById('createFirstNote').addEventListener('click', () => this.createNote());
+        } else {
+            emptyState.classList.add('hidden');
+        }
     }
 
     async saveAllNotes() {
