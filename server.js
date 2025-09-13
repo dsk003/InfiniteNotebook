@@ -26,8 +26,10 @@ async function ensureBucketExists(supabaseClient) {
     
     if (listError) {
       console.error('❌ Error listing buckets:', listError);
-      return;
+      return false;
     }
+    
+    console.log('📋 Available buckets:', buckets.map(b => b.name).join(', '));
     
     const bucketExists = buckets.some(bucket => bucket.name === 'note-media');
     
@@ -47,14 +49,18 @@ async function ensureBucketExists(supabaseClient) {
       
       if (error) {
         console.error('❌ Error creating bucket:', error);
+        return false;
       } else {
         console.log('✅ Storage bucket created successfully');
+        return true;
       }
     } else {
-      console.log('✅ Storage bucket already exists');
+      console.log('✅ Storage bucket "note-media" already exists');
+      return true;
     }
   } catch (error) {
     console.error('💥 Error ensuring bucket exists:', error);
+    return false;
   }
 }
 
@@ -488,7 +494,18 @@ app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), a
     const filePath = `${req.user.id}/${noteId}/${fileName}`;
     
     // Ensure bucket exists before upload
-    await ensureBucketExists(supabase);
+    const bucketReady = await ensureBucketExists(supabase);
+    if (!bucketReady) {
+      console.error('❌ Storage bucket not ready');
+      return res.status(500).json({ error: 'Storage not available' });
+    }
+    
+    console.log('📤 Uploading to path:', filePath);
+    console.log('📄 File details:', {
+      name: file.originalname,
+      type: file.mimetype,
+      size: file.size
+    });
     
     // Upload file to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -500,7 +517,15 @@ app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), a
     
     if (uploadError) {
       console.error('❌ Storage upload error:', uploadError);
-      return res.status(500).json({ error: 'Failed to upload file' });
+      console.error('❌ Upload error details:', {
+        message: uploadError.message,
+        status: uploadError.status,
+        statusCode: uploadError.statusCode
+      });
+      return res.status(500).json({ 
+        error: 'Failed to upload file',
+        details: uploadError.message 
+      });
     }
     
     console.log('✅ File uploaded to storage:', uploadData.path);
