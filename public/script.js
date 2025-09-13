@@ -506,8 +506,10 @@ class NotepadApp {
                         ${this.createMediaPreview(media)}
                     </div>
                     <div class="media-info">
-                        <span class="media-name">${media.file_name}</span>
-                        <span class="media-size">${this.formatFileSize(media.file_size)}</span>
+                        <div class="media-details">
+                            <span class="media-name">${media.file_name}</span>
+                            <span class="media-size">${this.formatFileSize(media.file_size)}</span>
+                        </div>
                         <button class="btn btn-danger btn-small" onclick="app.deleteMedia('${media.id}', '${noteId}')">×</button>
                     </div>
                 </div>
