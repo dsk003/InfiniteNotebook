@@ -3,6 +3,7 @@ class NotepadApp {
         this.notes = {};
         this.currentUser = null;
         this.supabase = null;
+        this.searchTimeout = null;
         this.init();
     }
 
@@ -356,7 +357,7 @@ class NotepadApp {
 
     // Search functionality
     handleSearch(event) {
-        const searchTerm = event.target.value.toLowerCase().trim();
+        const searchTerm = event.target.value.trim();
         const clearBtn = document.getElementById('clearSearchBtn');
         
         // Show/hide clear button
@@ -366,47 +367,74 @@ class NotepadApp {
             clearBtn.classList.add('hidden');
         }
         
-        // Filter notes
-        this.filterNotes(searchTerm);
+        // Debounce search to avoid too many API calls
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
+        
+        this.searchTimeout = setTimeout(() => {
+            if (searchTerm) {
+                this.performSearch(searchTerm);
+            } else {
+                // If empty search, load all notes
+                this.loadNotes();
+            }
+        }, 300); // Wait 300ms after user stops typing
     }
     
-    filterNotes(searchTerm) {
-        const noteElements = document.querySelectorAll('.note');
-        let visibleCount = 0;
-        
-        noteElements.forEach(noteElement => {
-            const noteId = noteElement.dataset.noteId;
-            const note = this.notes[noteId];
+    async performSearch(searchTerm) {
+        try {
+            console.log('🔍 Performing search for:', searchTerm);
             
-            if (!searchTerm) {
-                // Show all notes if no search term
-                noteElement.style.display = 'block';
-                visibleCount++;
-            } else {
-                // Check if note content contains search term
-                const content = note ? note.content.toLowerCase() : '';
-                if (content.includes(searchTerm)) {
-                    noteElement.style.display = 'block';
-                    visibleCount++;
-                } else {
-                    noteElement.style.display = 'none';
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`/api/search?q=${encodeURIComponent(searchTerm)}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
                 }
+            });
+            
+            if (response.ok) {
+                const searchResults = await response.json();
+                console.log('✅ Search results received:', Object.keys(searchResults).length, 'notes');
+                
+                // Update notes with search results
+                this.notes = searchResults;
+                this.renderNotes();
+                
+                // Show empty state if no results
+                if (Object.keys(searchResults).length === 0) {
+                    this.updateEmptyState(true, searchTerm);
+                } else {
+                    this.updateEmptyState(false, searchTerm);
+                }
+            } else if (response.status === 401) {
+                this.handleLogout();
+            } else {
+                console.error('❌ Search failed:', response.statusText);
+                // Fall back to showing all notes
+                this.loadNotes();
             }
-        });
-        
-        // Show/hide empty state based on visible notes
-        this.updateEmptyState(visibleCount === 0 && Object.keys(this.notes).length > 0, searchTerm);
+        } catch (error) {
+            console.error('💥 Search error:', error);
+            // Fall back to showing all notes
+            this.loadNotes();
+        }
     }
     
     clearSearch() {
         const searchInput = document.getElementById('searchInput');
         const clearBtn = document.getElementById('clearSearchBtn');
         
+        // Clear the search timeout if it exists
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
+        
         searchInput.value = '';
         clearBtn.classList.add('hidden');
         
-        // Show all notes
-        this.filterNotes('');
+        // Load all notes again
+        this.loadNotes();
     }
     
     updateEmptyState(showNoResults, searchTerm) {

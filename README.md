@@ -7,12 +7,13 @@ A simple, beautiful web application for taking unlimited notes. Built with Node.
 - 🔐 **User Authentication**: Secure login/signup with email and password
 - ✨ **Infinite Notes**: Create as many notes as you want
 - 💾 **Auto-save**: Notes are automatically saved as you type
+- 🔍 **Full-Text Search**: Powerful PostgreSQL-based search with ranking
 - 🗄️ **Persistent Storage**: Notes are stored in Supabase database
 - ⏰ **Timestamps**: Each note has creation and update timestamps
 - 👤 **Personal Notes**: Each user can only see and edit their own notes
 - 🎨 **Modern UI**: Beautiful, responsive design with glassmorphism effects
 - 📱 **Mobile-friendly**: Works perfectly on all devices
-- 🚀 **Fast**: Lightweight and fast loading
+- 🚀 **Fast**: Lightweight and fast loading with optimized search
 - 🔄 **Real-time**: Changes are saved automatically with debouncing
 
 ## Tech Stack

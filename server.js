@@ -262,6 +262,101 @@ app.delete('/api/notes/:id', authenticateUser, async (req, res) => {
   }
 });
 
+// Full-Text Search Routes
+app.get('/api/search', authenticateUser, async (req, res) => {
+  try {
+    const { q: query } = req.query;
+    
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+    
+    console.log('🔍 Full-text search for user:', req.user.id, 'query:', query);
+    
+    // Sanitize the query for PostgreSQL full-text search
+    const sanitizedQuery = query.trim().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' & ');
+    
+    console.log('🧹 Sanitized query:', sanitizedQuery);
+    
+    // Use the search_notes function we created
+    const { data, error } = await supabase
+      .rpc('search_notes', {
+        search_query: sanitizedQuery,
+        user_uuid: req.user.id
+      });
+    
+    if (error) {
+      console.error('❌ Full-text search error:', error);
+      return res.status(500).json({ error: 'Search failed' });
+    }
+    
+    console.log('✅ Search results:', data?.length || 0, 'notes found');
+    
+    // Transform the data to match frontend expectations
+    const transformedNotes = {};
+    data.forEach(note => {
+      transformedNotes[note.id] = {
+        id: note.id,
+        content: note.content,
+        createdAt: note.created_at,
+        updatedAt: note.updated_at,
+        rank: note.rank // Include search relevance rank
+      };
+    });
+    
+    res.json(transformedNotes);
+  } catch (error) {
+    console.error('💥 Unexpected search error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Partial/Prefix Search Route
+app.get('/api/search/partial', authenticateUser, async (req, res) => {
+  try {
+    const { q: query } = req.query;
+    
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+    
+    console.log('🔍 Partial search for user:', req.user.id, 'query:', query);
+    
+    // For partial search, we'll use the last word as prefix
+    const sanitizedQuery = query.trim().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ');
+    
+    const { data, error } = await supabase
+      .rpc('search_notes_partial', {
+        search_query: sanitizedQuery,
+        user_uuid: req.user.id
+      });
+    
+    if (error) {
+      console.error('❌ Partial search error:', error);
+      return res.status(500).json({ error: 'Partial search failed' });
+    }
+    
+    console.log('✅ Partial search results:', data?.length || 0, 'notes found');
+    
+    // Transform the data to match frontend expectations
+    const transformedNotes = {};
+    data.forEach(note => {
+      transformedNotes[note.id] = {
+        id: note.id,
+        content: note.content,
+        createdAt: note.created_at,
+        updatedAt: note.updated_at,
+        rank: note.rank
+      };
+    });
+    
+    res.json(transformedNotes);
+  } catch (error) {
+    console.error('💥 Unexpected partial search error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Serve the main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
