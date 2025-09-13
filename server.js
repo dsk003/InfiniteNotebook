@@ -32,13 +32,13 @@ async function verifyBucketExists(supabaseClient) {
     
     console.log('📋 Available buckets:', buckets.map(b => b.name).join(', '));
     
-    const bucketExists = buckets.some(bucket => bucket.name === 'note-media');
+    const bucketExists = buckets.some(bucket => bucket.name === 'notes.media');
     
     if (bucketExists) {
-      console.log('✅ Storage bucket "note-media" found and ready');
+      console.log('✅ Storage bucket "notes.media" found and ready');
       return true;
     } else {
-      console.log('❌ Storage bucket "note-media" not found in bucket list');
+      console.log('❌ Storage bucket "notes.media" not found in bucket list');
       // Try to test direct access anyway, in case listing is restricted
       return await testBucketAccess(supabaseClient);
     }
@@ -56,20 +56,20 @@ async function testBucketAccess(supabaseClient) {
     
     // Try to list files in the bucket (this will work if bucket exists and we have access)
     const { data, error } = await supabaseClient.storage
-      .from('note-media')
+      .from('notes.media')
       .list('', { limit: 1 });
     
     if (error) {
       console.log('🔍 Bucket access test error:', error.message, 'Status:', error.status);
       if (error.message.includes('Bucket not found') || error.status === 404) {
-        console.log('❌ Bucket "note-media" does not exist');
+        console.log('❌ Bucket "notes.media" does not exist');
         return false;
       } else {
         console.log('✅ Bucket exists but listing failed (this is OK):', error.message);
         return true; // Bucket exists, we just can't list (probably due to RLS)
       }
     } else {
-      console.log('✅ Bucket "note-media" is accessible');
+      console.log('✅ Bucket "notes.media" is accessible');
       return true;
     }
   } catch (error) {
@@ -451,7 +451,7 @@ app.post('/api/storage/setup', authenticateUser, async (req, res) => {
       success: bucketReady, 
       message: bucketReady ? 
         'Storage bucket is accessible and ready' : 
-        'Storage bucket not found. Please create "note-media" bucket in Supabase dashboard.',
+        'Storage bucket not found. Please create "notes.media" bucket in Supabase dashboard.',
       bucketExists: bucketReady
     });
     
@@ -503,7 +503,7 @@ app.get('/api/storage/debug', authenticateUser, async (req, res) => {
       success: true,
       buckets: buckets,
       bucketTests: bucketTests,
-      lookingFor: 'note-media'
+      lookingFor: 'notes.media'
     });
     
   } catch (error) {
@@ -547,7 +547,7 @@ app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), a
     if (!bucketReady) {
       console.error('❌ Storage bucket not accessible');
       return res.status(500).json({ 
-        error: 'Storage bucket not found. Please ensure the "note-media" bucket exists in your Supabase project.' 
+        error: 'Storage bucket not found. Please ensure the "notes.media" bucket exists in your Supabase project.' 
       });
     }
     
@@ -560,7 +560,7 @@ app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), a
     
     // Upload file to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('note-media')
+      .from('notes.media')
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
         duplex: false
@@ -598,7 +598,7 @@ app.post('/api/media/upload/:noteId', authenticateUser, upload.single('file'), a
         file_type: fileType,
         file_size: file.size,
         mime_type: file.mimetype,
-        storage_bucket: 'note-media'
+        storage_bucket: 'notes.media'
       })
       .select()
       .single();
@@ -675,7 +675,7 @@ app.get('/api/media/:mediaId/url', authenticateUser, async (req, res) => {
     
     // Get signed URL for the file (valid for 1 hour)
     const { data: urlData, error: urlError } = await supabase.storage
-      .from('note-media')
+      .from('notes.media')
       .createSignedUrl(media.file_path, 3600); // 1 hour
     
     if (urlError) {
@@ -715,7 +715,7 @@ app.delete('/api/media/:mediaId', authenticateUser, async (req, res) => {
     
     // Delete file from storage
     const { error: storageError } = await supabase.storage
-      .from('note-media')
+      .from('notes.media')
       .remove([media.file_path]);
     
     if (storageError) {
