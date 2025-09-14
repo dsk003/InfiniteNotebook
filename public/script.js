@@ -4,6 +4,7 @@ class NotepadApp {
         this.currentUser = null;
         this.supabase = null;
         this.searchTimeout = null;
+        this.sessionStartTime = Date.now();
         this.init();
     }
 
@@ -91,6 +92,15 @@ class NotepadApp {
                         method: 'email'
                     });
                 }
+                
+                // Track login with Amplitude
+                if (typeof amplitude !== 'undefined' && amplitude.track) {
+                    amplitude.track('User Login', {
+                        method: 'email',
+                        user_email: this.currentUser.email
+                    });
+                    amplitude.setUserId(this.currentUser.id);
+                }
             } else {
                 this.showError(data.error || 'Login failed');
             }
@@ -132,6 +142,15 @@ class NotepadApp {
                             method: 'email'
                         });
                     }
+                    
+                    // Track signup with Amplitude
+                    if (typeof amplitude !== 'undefined' && amplitude.track) {
+                        amplitude.track('User Signup', {
+                            method: 'email',
+                            user_email: this.currentUser.email
+                        });
+                        amplitude.setUserId(this.currentUser.id);
+                    }
                 }
             } else {
                 this.showError(data.error || 'Signup failed');
@@ -143,6 +162,14 @@ class NotepadApp {
     }
 
     handleLogout() {
+        // Track logout with Amplitude before clearing user data
+        if (typeof amplitude !== 'undefined' && amplitude.track && this.currentUser) {
+            amplitude.track('User Logout', {
+                user_email: this.currentUser.email,
+                session_duration: Date.now() - (this.sessionStartTime || Date.now())
+            });
+        }
+        
         localStorage.removeItem('auth_token');
         this.currentUser = null;
         this.notes = {};
@@ -159,6 +186,14 @@ class NotepadApp {
         document.getElementById('appSection').classList.remove('hidden');
         document.getElementById('userEmail').textContent = this.currentUser.email;
         this.bindAppEvents();
+        
+        // Track app session start with Amplitude
+        if (typeof amplitude !== 'undefined' && amplitude.track) {
+            amplitude.track('App Session Started', {
+                user_email: this.currentUser.email,
+                timestamp: new Date().toISOString()
+            });
+        }
     }
 
     bindAppEvents() {
@@ -214,6 +249,14 @@ class NotepadApp {
             if (response.ok) {
                 this.notes = await response.json();
                 this.renderNotes();
+                
+                // Track notes loaded with Amplitude
+                if (typeof amplitude !== 'undefined' && amplitude.track) {
+                    amplitude.track('Notes Loaded', {
+                        notes_count: Object.keys(this.notes).length,
+                        user_email: this.currentUser?.email
+                    });
+                }
             } else if (response.status === 401) {
                 this.handleLogout();
             }
@@ -245,6 +288,14 @@ class NotepadApp {
                     gtag('event', 'create_note', {
                         event_category: 'engagement',
                         event_label: 'new_note'
+                    });
+                }
+                
+                // Track note creation with Amplitude
+                if (typeof amplitude !== 'undefined' && amplitude.track) {
+                    amplitude.track('Note Created', {
+                        note_id: newNote.id,
+                        total_notes: Object.keys(this.notes).length
                     });
                 }
             } else if (response.status === 401) {
@@ -301,6 +352,14 @@ class NotepadApp {
                     gtag('event', 'delete_note', {
                         event_category: 'engagement',
                         event_label: 'note_deleted'
+                    });
+                }
+                
+                // Track note deletion with Amplitude
+                if (typeof amplitude !== 'undefined' && amplitude.track) {
+                    amplitude.track('Note Deleted', {
+                        note_id: noteId,
+                        remaining_notes: Object.keys(this.notes).length - 1
                     });
                 }
             } else if (response.status === 401) {
@@ -476,6 +535,16 @@ class NotepadApp {
                         event_category: 'engagement',
                         event_label: 'media_upload',
                         value: 1
+                    });
+                }
+                
+                // Track media upload with Amplitude
+                if (typeof amplitude !== 'undefined' && amplitude.track) {
+                    amplitude.track('Media Uploaded', {
+                        file_name: file.name,
+                        file_type: file.type,
+                        file_size: file.size,
+                        note_id: noteId
                     });
                 }
                 
@@ -695,6 +764,15 @@ class NotepadApp {
                         event_category: 'engagement',
                         event_label: 'note_search',
                         value: Object.keys(searchResults).length
+                    });
+                }
+                
+                // Track search with Amplitude
+                if (typeof amplitude !== 'undefined' && amplitude.track) {
+                    amplitude.track('Search Performed', {
+                        search_term: searchTerm,
+                        results_count: Object.keys(searchResults).length,
+                        has_results: Object.keys(searchResults).length > 0
                     });
                 }
                 

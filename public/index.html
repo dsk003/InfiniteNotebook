@@ -11,6 +11,14 @@
       gtag('config', 'G-JNHBCS9GJ1');
     </script>
     
+    <!-- Amplitude Analytics -->
+    <script src="https://cdn.amplitude.com/libs/analytics-browser-2.11.1-min.js.gz"></script>
+    <script src="https://cdn.amplitude.com/libs/plugin-session-replay-browser-1.8.0-min.js.gz"></script>
+    <script>
+      window.amplitude.add(window.sessionReplay.plugin({sampleRate: 1}));
+      window.amplitude.init('9c8f36f80ca7b8a47bc60fde8aaaf08a', {"autocapture":{"elementInteractions":true}});
+    </script>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Infinite Notepad</title>
