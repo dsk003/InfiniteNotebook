@@ -84,6 +84,13 @@ class NotepadApp {
                 this.showApp();
                 this.loadNotes();
                 this.hideError();
+                
+                // Track successful login
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'login', {
+                        method: 'email'
+                    });
+                }
             } else {
                 this.showError(data.error || 'Login failed');
             }
@@ -118,6 +125,13 @@ class NotepadApp {
                     this.showApp();
                     this.loadNotes();
                     this.hideError();
+                    
+                    // Track successful signup
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'sign_up', {
+                            method: 'email'
+                        });
+                    }
                 }
             } else {
                 this.showError(data.error || 'Signup failed');
@@ -225,6 +239,14 @@ class NotepadApp {
                 this.notes[newNote.id] = newNote;
                 this.renderNotes();
                 this.focusLatestNote();
+                
+                // Track note creation
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'create_note', {
+                        event_category: 'engagement',
+                        event_label: 'new_note'
+                    });
+                }
             } else if (response.status === 401) {
                 this.handleLogout();
             }
@@ -273,6 +295,14 @@ class NotepadApp {
             if (response.ok) {
                 delete this.notes[noteId];
                 this.renderNotes();
+                
+                // Track note deletion
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'delete_note', {
+                        event_category: 'engagement',
+                        event_label: 'note_deleted'
+                    });
+                }
             } else if (response.status === 401) {
                 this.handleLogout();
             }
@@ -439,6 +469,15 @@ class NotepadApp {
                 
                 progressText.textContent = 'Upload complete!';
                 progressFill.style.width = '100%';
+                
+                // Track media upload
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'upload_media', {
+                        event_category: 'engagement',
+                        event_label: 'media_upload',
+                        value: 1
+                    });
+                }
                 
                 // Hide upload section and reload media
                 setTimeout(() => {
@@ -649,6 +688,15 @@ class NotepadApp {
                 // Update notes with search results
                 this.notes = searchResults;
                 this.renderNotes();
+                
+                // Track search usage
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'search', {
+                        event_category: 'engagement',
+                        event_label: 'note_search',
+                        value: Object.keys(searchResults).length
+                    });
+                }
                 
                 // Show empty state if no results
                 if (Object.keys(searchResults).length === 0) {
