@@ -662,34 +662,87 @@ body {
     padding: 0 24px 24px;
 }
 
-.product-card {
-    text-align: center;
+.products-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
     padding: 20px;
 }
 
+.product-card {
+    text-align: center;
+    padding: 24px 20px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    position: relative;
+    transition: all 0.3s;
+    background: #f7fafc;
+}
+
+.product-card:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+}
+
+.subscription-card {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #667eea10, #764ba210);
+}
+
+.popular-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #667eea;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
 .product-image {
-    font-size: 4rem;
+    font-size: 3rem;
     margin-bottom: 16px;
 }
 
 .product-card h3 {
     color: #2d3748;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     margin-bottom: 12px;
 }
 
 .product-description {
     color: #4a5568;
-    font-size: 1rem;
-    line-height: 1.5;
-    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 16px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    text-align: center;
 }
 
 .product-price {
-    font-size: 2rem;
+    font-size: 1.8rem;
     font-weight: 700;
     color: #667eea;
-    margin-bottom: 24px;
+    margin-bottom: 8px;
+}
+
+.billing-period {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #718096;
+}
+
+.product-billing {
+    color: #718096;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+    font-weight: 500;
 }
 
 .btn-premium {
@@ -711,6 +764,28 @@ body {
 }
 
 .btn-premium:active {
+    transform: translateY(0);
+}
+
+.btn-subscription {
+    background: linear-gradient(135deg, #38a169, #2f855a);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.95rem;
+}
+
+.btn-subscription:hover {
+    background: linear-gradient(135deg, #2f855a, #276749);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(56, 161, 105, 0.3);
+}
+
+.btn-subscription:active {
     transform: translateY(0);
 }
 
@@ -770,9 +845,19 @@ body {
         width: calc(100% - 40px);
     }
     
-    .pricing-options {
+    .products-grid {
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 16px;
+        padding: 16px;
+    }
+    
+    .product-card {
+        padding: 20px 16px;
+    }
+    
+    .product-description {
+        height: auto;
+        min-height: 60px;
     }
     
     .modal-header {

@@ -558,6 +558,104 @@ app.post('/api/payments/create', authenticateUser, async (req, res) => {
   }
 });
 
+// Subscription creation endpoint
+app.post('/api/subscriptions/create', authenticateUser, async (req, res) => {
+  try {
+    console.log('🔍 Subscription creation request received');
+    console.log('🔑 DodoPayments available:', !!DodoPayments);
+    console.log('🗝️ API Key available:', !!dodoApiKey);
+    
+    if (!DodoPayments) {
+      console.error('❌ Dodo Payments SDK not loaded');
+      return res.status(500).json({ error: 'Payment system not available' });
+    }
+    
+    if (!dodoApiKey) {
+      console.error('❌ Dodo Payments API key not configured');
+      return res.status(500).json({ error: 'Payment system not configured' });
+    }
+
+    const { productId, returnUrl } = req.body;
+    
+    if (!productId) {
+      console.error('❌ No product ID provided');
+      return res.status(400).json({ error: 'Product ID is required' });
+    }
+
+    console.log('🔄 Creating subscription for user:', req.user.id, 'product:', productId);
+    console.log('🔑 API Key (first 10 chars):', dodoApiKey ? dodoApiKey.substring(0, 10) + '...' : 'null');
+
+    const client = new DodoPayments({
+      bearerToken: dodoApiKey,
+      environment: dodoEnvironment
+    });
+
+    console.log('🏗️ DodoPayments client created successfully');
+    console.log('🌍 Using environment:', dodoEnvironment);
+
+    // Prepare subscription data
+    const subscriptionData = {
+      payment_link: true,
+      billing: {
+        city: 'City',
+        country: 'US',
+        state: 'State',
+        street: 'Street',
+        zipcode: '00000'
+      },
+      customer: {
+        email: req.user.email,
+        name: req.user.email.split('@')[0]
+        // Remove customer_id to let Dodo create a new customer
+      },
+      product_id: productId,
+      quantity: 1,
+      return_url: returnUrl || `${req.protocol}://${req.get('host')}/payment-success`
+    };
+
+    console.log('📤 Sending subscription data:', JSON.stringify(subscriptionData, null, 2));
+
+    // Create subscription
+    const subscription = await client.subscriptions.create(subscriptionData);
+
+    console.log('✅ Subscription link created:', subscription.id);
+
+    // Store subscription record in database
+    const { data: subscriptionRecord, error: dbError } = await supabase
+      .from('user_payments')
+      .insert({
+        user_id: req.user.id,
+        payment_id: subscription.id,
+        product_id: productId,
+        amount: 1.00, // $1 subscription
+        currency: 'USD',
+        status: 'pending',
+        payment_link: subscription.payment_link
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('❌ Error saving subscription record:', dbError);
+      // Continue anyway, payment link is still valid
+    }
+
+    res.json({
+      subscriptionId: subscription.id,
+      paymentLink: subscription.payment_link,
+      amount: 1.00,
+      currency: 'USD'
+    });
+
+  } catch (error) {
+    console.error('💥 Subscription creation error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create subscription',
+      details: error.message 
+    });
+  }
+});
+
 // Webhook endpoint for payment updates
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {

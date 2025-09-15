@@ -214,7 +214,10 @@ class NotepadApp {
         document.getElementById('closeStoreModal').addEventListener('click', () => this.hideStoreModal());
         document.getElementById('closeSuccessModal').addEventListener('click', () => this.hideSuccessModal());
         document.getElementById('continueBtn').addEventListener('click', () => this.hideSuccessModal());
-        document.getElementById('purchaseBtn').addEventListener('click', (e) => this.handlePurchase(e));
+        // Purchase buttons (now multiple)
+        document.querySelectorAll('.purchase-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.handlePurchase(e));
+        });
         
         // Bind createFirstNote event if it exists
         const createFirstNoteBtn = document.getElementById('createFirstNote');
@@ -901,7 +904,7 @@ class NotepadApp {
     hideStoreModal() {
         document.getElementById('storeModal').classList.add('hidden');
         document.getElementById('purchaseStatus').classList.add('hidden');
-        document.querySelector('.product-card').classList.remove('hidden');
+        document.querySelector('.products-grid').classList.remove('hidden');
     }
 
     showSuccessModal() {
@@ -914,64 +917,85 @@ class NotepadApp {
 
     async handlePurchase(event) {
         const productId = event.target.dataset.productId;
+        const productType = event.target.dataset.productType;
         if (!productId) return;
 
-        console.log('Starting purchase for product:', productId);
+        console.log('Starting purchase for product:', productId, 'type:', productType);
 
         // Show loading state
-        document.querySelector('.product-card').classList.add('hidden');
+        document.querySelector('.products-grid').classList.add('hidden');
         document.getElementById('purchaseStatus').classList.remove('hidden');
 
         try {
             const token = localStorage.getItem('auth_token');
-            const response = await fetch(`${this.supabaseUrl}/api/payments/create`, {
+            
+            // Choose endpoint based on product type
+            const endpoint = productType === 'subscription' 
+                ? `${this.supabaseUrl}/api/subscriptions/create`
+                : `${this.supabaseUrl}/api/payments/create`;
+            
+            const requestBody = productType === 'subscription' 
+                ? {
+                    productId: productId,
+                    returnUrl: `${window.location.origin}/payment-success`
+                }
+                : {
+                    productId: productId,
+                    quantity: 1,
+                    returnUrl: `${window.location.origin}/payment-success`
+                };
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    productId: productId,
-                    quantity: 1,
-                    returnUrl: `${window.location.origin}/payment-success`
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
-                throw new Error(`Payment creation failed: ${response.status}`);
+                throw new Error(`${productType} creation failed: ${response.status}`);
             }
 
-            const paymentData = await response.json();
-            console.log('Payment link created:', paymentData.paymentLink);
+            const responseData = await response.json();
+            console.log(`${productType} link created:`, responseData.paymentLink);
 
             // Track event
             if (typeof amplitude !== 'undefined' && amplitude.track) {
-                amplitude.track('Purchase Initiated', {
+                const eventName = productType === 'subscription' ? 'Subscription Initiated' : 'Purchase Initiated';
+                amplitude.track(eventName, {
                     user_email: this.currentUser.email,
                     product_id: productId,
-                    amount: paymentData.amount,
-                    payment_id: paymentData.paymentId
+                    product_type: productType,
+                    amount: responseData.amount,
+                    payment_id: responseData.subscriptionId || responseData.paymentId
                 });
             }
 
             // Redirect to payment page
-            window.location.href = paymentData.paymentLink;
+            window.location.href = responseData.paymentLink;
 
         } catch (error) {
-            console.error('Purchase error:', error);
+            console.error(`${productType} error:`, error);
             
             // Show error state
             document.getElementById('purchaseStatus').classList.add('hidden');
-            document.querySelector('.product-card').classList.remove('hidden');
+            document.querySelector('.products-grid').classList.remove('hidden');
             
             // Show error message
-            alert('Purchase setup failed. Please try again or contact support.');
+            const errorMessage = productType === 'subscription' 
+                ? 'Subscription setup failed. Please try again or contact support.'
+                : 'Purchase setup failed. Please try again or contact support.';
+            alert(errorMessage);
             
             // Track error
             if (typeof amplitude !== 'undefined' && amplitude.track) {
-                amplitude.track('Purchase Error', {
+                const eventName = productType === 'subscription' ? 'Subscription Error' : 'Purchase Error';
+                amplitude.track(eventName, {
                     user_email: this.currentUser.email,
                     product_id: productId,
+                    product_type: productType,
                     error: error.message
                 });
             }

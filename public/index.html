@@ -113,14 +113,35 @@
                     <button id="closeStoreModal" class="modal-close">×</button>
                 </div>
                 <div class="modal-body">
-                    <div class="product-card">
-                        <div class="product-image">⭐</div>
-                        <h3>Premium Access</h3>
-                        <p class="product-description">Unlock all premium features including unlimited notes, advanced search, media attachments, and priority support.</p>
-                        <div class="product-price">$9.99</div>
-                        <button id="purchaseBtn" class="btn btn-premium btn-full" data-product-id="pdt_UrKdEbkyutltGJe3i5Zdy">
-                            Purchase Now
-                        </button>
+                    <div class="products-grid">
+                        <!-- One-time Purchase Product -->
+                        <div class="product-card">
+                            <div class="product-image">💎</div>
+                            <h3>Premium Access</h3>
+                            <p class="product-description">One-time purchase for premium features including unlimited notes, advanced search, and media attachments.</p>
+                            <div class="product-price">$1.00</div>
+                            <div class="product-billing">One-time payment</div>
+                            <button class="btn btn-premium btn-full purchase-btn" 
+                                    data-product-id="pdt_UrKdEbkyutltGJe3i5Zdy" 
+                                    data-product-type="one-time">
+                                Buy Once - $1
+                            </button>
+                        </div>
+
+                        <!-- Subscription Product -->
+                        <div class="product-card subscription-card">
+                            <div class="popular-badge">Most Popular</div>
+                            <div class="product-image">🔄</div>
+                            <h3>Premium Subscription</h3>
+                            <p class="product-description">Monthly subscription with all premium features plus ongoing updates and priority support.</p>
+                            <div class="product-price">$1.00<span class="billing-period">/month</span></div>
+                            <div class="product-billing">Recurring monthly</div>
+                            <button class="btn btn-subscription btn-full purchase-btn" 
+                                    data-product-id="pdt_wbfzAtNnv53tqSUsKXJhp" 
+                                    data-product-type="subscription">
+                                Subscribe - $1/mo
+                            </button>
+                        </div>
                     </div>
                     <div id="purchaseStatus" class="purchase-status hidden">
                         <div class="loading">
