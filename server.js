@@ -481,13 +481,16 @@ app.post('/api/payments/create', authenticateUser, async (req, res) => {
     }
 
     console.log('💳 Creating payment for user:', req.user.id, 'product:', productId);
+    console.log('🔑 API Key (first 10 chars):', dodoApiKey ? dodoApiKey.substring(0, 10) + '...' : 'null');
 
     const client = new DodoPayments({
       bearerToken: dodoApiKey,
     });
 
-    // Create payment link
-    const payment = await client.payments.create({
+    console.log('🏗️ DodoPayments client created successfully');
+
+    // Prepare payment data
+    const paymentData = {
       payment_link: true,
       billing: {
         city: 'City',
@@ -506,7 +509,12 @@ app.post('/api/payments/create', authenticateUser, async (req, res) => {
         quantity: quantity
       }],
       return_url: returnUrl || `${req.protocol}://${req.get('host')}/payment-success`
-    });
+    };
+
+    console.log('📤 Sending payment data:', JSON.stringify(paymentData, null, 2));
+
+    // Create payment link
+    const payment = await client.payments.create(paymentData);
 
     console.log('✅ Payment link created:', payment.id);
 
