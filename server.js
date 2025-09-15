@@ -23,6 +23,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 let DodoPayments = null;
 const dodoApiKey = process.env.DODO_PAYMENTS_API_KEY;
 const dodoWebhookSecret = process.env.DODO_WEBHOOK_SECRET;
+const dodoEnvironment = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode'; // Default to test_mode
 
 // Load Dodo Payments SDK
 try {
@@ -30,6 +31,7 @@ try {
   console.log('✅ Dodo Payments SDK loaded successfully');
   console.log('🔑 API Key present:', !!dodoApiKey);
   console.log('🔐 Webhook Secret present:', !!dodoWebhookSecret);
+  console.log('🌍 Environment:', dodoEnvironment);
 } catch (error) {
   console.error('❌ Failed to load Dodo Payments SDK:', error.message);
 }
@@ -485,9 +487,11 @@ app.post('/api/payments/create', authenticateUser, async (req, res) => {
 
     const client = new DodoPayments({
       bearerToken: dodoApiKey,
+      environment: dodoEnvironment
     });
 
     console.log('🏗️ DodoPayments client created successfully');
+    console.log('🌍 Using environment:', dodoEnvironment);
 
     // Prepare payment data
     const paymentData = {
