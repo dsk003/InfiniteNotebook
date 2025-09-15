@@ -19,24 +19,20 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Initialize Dodo Payments (will be loaded dynamically to handle import issues)
+// Initialize Dodo Payments
 let DodoPayments = null;
 const dodoApiKey = process.env.DODO_PAYMENTS_API_KEY;
 const dodoWebhookSecret = process.env.DODO_WEBHOOK_SECRET;
 
-// Dynamic import for Dodo Payments
-async function initializeDodoPayments() {
-  try {
-    const dodoModule = await import('dodopayments');
-    DodoPayments = dodoModule.default || dodoModule;
-    console.log('✅ Dodo Payments SDK initialized');
-  } catch (error) {
-    console.warn('⚠️ Dodo Payments SDK not available:', error.message);
-  }
+// Load Dodo Payments SDK
+try {
+  DodoPayments = require('dodopayments');
+  console.log('✅ Dodo Payments SDK loaded successfully');
+  console.log('🔑 API Key present:', !!dodoApiKey);
+  console.log('🔐 Webhook Secret present:', !!dodoWebhookSecret);
+} catch (error) {
+  console.error('❌ Failed to load Dodo Payments SDK:', error.message);
 }
-
-// Initialize Dodo Payments on startup
-initializeDodoPayments();
 
 // Helper function to verify the storage bucket exists
 async function verifyBucketExists(supabaseClient) {
@@ -463,13 +459,24 @@ app.get('/api/search/partial', authenticateUser, async (req, res) => {
 // Payment Routes
 app.post('/api/payments/create', authenticateUser, async (req, res) => {
   try {
-    if (!DodoPayments || !dodoApiKey) {
+    console.log('🔍 Payment creation request received');
+    console.log('🔑 DodoPayments available:', !!DodoPayments);
+    console.log('🗝️ API Key available:', !!dodoApiKey);
+    
+    if (!DodoPayments) {
+      console.error('❌ Dodo Payments SDK not loaded');
+      return res.status(500).json({ error: 'Payment system not available' });
+    }
+    
+    if (!dodoApiKey) {
+      console.error('❌ Dodo Payments API key not configured');
       return res.status(500).json({ error: 'Payment system not configured' });
     }
 
     const { productId, quantity = 1, returnUrl } = req.body;
     
     if (!productId) {
+      console.error('❌ No product ID provided');
       return res.status(400).json({ error: 'Product ID is required' });
     }
 
