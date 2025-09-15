@@ -505,8 +505,8 @@ app.post('/api/payments/create', authenticateUser, async (req, res) => {
       },
       customer: {
         email: req.user.email,
-        name: req.user.email.split('@')[0],
-        customer_id: req.user.id
+        name: req.user.email.split('@')[0]
+        // Remove customer_id to let Dodo create a new customer
       },
       product_cart: [{
         product_id: productId,
