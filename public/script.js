@@ -187,6 +187,9 @@ class NotepadApp {
         document.getElementById('userEmail').textContent = this.currentUser.email;
         this.bindAppEvents();
         
+        // Check for purchase success
+        this.checkPurchaseSuccess();
+        
         // Track app session start with Amplitude
         if (typeof amplitude !== 'undefined' && amplitude.track) {
             amplitude.track('App Session Started', {
@@ -205,6 +208,13 @@ class NotepadApp {
         // Search events
         document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e));
         document.getElementById('clearSearchBtn').addEventListener('click', () => this.clearSearch());
+
+        // Store events
+        document.getElementById('storeBtn').addEventListener('click', () => this.showStoreModal());
+        document.getElementById('closeStoreModal').addEventListener('click', () => this.hideStoreModal());
+        document.getElementById('closeSuccessModal').addEventListener('click', () => this.hideSuccessModal());
+        document.getElementById('continueBtn').addEventListener('click', () => this.hideSuccessModal());
+        document.getElementById('purchaseBtn').addEventListener('click', (e) => this.handlePurchase(e));
         
         // Bind createFirstNote event if it exists
         const createFirstNoteBtn = document.getElementById('createFirstNote');
@@ -873,6 +883,121 @@ class NotepadApp {
                 saveBtn.textContent = originalText;
                 saveBtn.disabled = false;
             }, 2000);
+        }
+    }
+
+    // Store Methods
+    showStoreModal() {
+        document.getElementById('storeModal').classList.remove('hidden');
+        
+        // Track event
+        if (typeof amplitude !== 'undefined' && amplitude.track) {
+            amplitude.track('Store Modal Opened', {
+                user_email: this.currentUser.email
+            });
+        }
+    }
+
+    hideStoreModal() {
+        document.getElementById('storeModal').classList.add('hidden');
+        document.getElementById('purchaseStatus').classList.add('hidden');
+        document.querySelector('.product-card').classList.remove('hidden');
+    }
+
+    showSuccessModal() {
+        document.getElementById('successModal').classList.remove('hidden');
+    }
+
+    hideSuccessModal() {
+        document.getElementById('successModal').classList.add('hidden');
+    }
+
+    async handlePurchase(event) {
+        const productId = event.target.dataset.productId;
+        if (!productId) return;
+
+        console.log('Starting purchase for product:', productId);
+
+        // Show loading state
+        document.querySelector('.product-card').classList.add('hidden');
+        document.getElementById('purchaseStatus').classList.remove('hidden');
+
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`${this.supabaseUrl}/api/payments/create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    productId: productId,
+                    quantity: 1,
+                    returnUrl: `${window.location.origin}/payment-success`
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Payment creation failed: ${response.status}`);
+            }
+
+            const paymentData = await response.json();
+            console.log('Payment link created:', paymentData.paymentLink);
+
+            // Track event
+            if (typeof amplitude !== 'undefined' && amplitude.track) {
+                amplitude.track('Purchase Initiated', {
+                    user_email: this.currentUser.email,
+                    product_id: productId,
+                    amount: paymentData.amount,
+                    payment_id: paymentData.paymentId
+                });
+            }
+
+            // Redirect to payment page
+            window.location.href = paymentData.paymentLink;
+
+        } catch (error) {
+            console.error('Purchase error:', error);
+            
+            // Show error state
+            document.getElementById('purchaseStatus').classList.add('hidden');
+            document.querySelector('.product-card').classList.remove('hidden');
+            
+            // Show error message
+            alert('Purchase setup failed. Please try again or contact support.');
+            
+            // Track error
+            if (typeof amplitude !== 'undefined' && amplitude.track) {
+                amplitude.track('Purchase Error', {
+                    user_email: this.currentUser.email,
+                    product_id: productId,
+                    error: error.message
+                });
+            }
+        }
+    }
+
+    // Check for purchase success on page load
+    checkPurchaseSuccess() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const purchaseSuccess = urlParams.get('payment') === 'success';
+        
+        if (purchaseSuccess) {
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // Show success modal
+            setTimeout(() => {
+                this.showSuccessModal();
+            }, 1000);
+
+            // Track success
+            if (typeof amplitude !== 'undefined' && amplitude.track) {
+                amplitude.track('Purchase Success', {
+                    user_email: this.currentUser.email
+                });
+            }
         }
     }
 }

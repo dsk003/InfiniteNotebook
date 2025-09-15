@@ -82,6 +82,7 @@
                     <button id="clearSearchBtn" class="clear-search-btn hidden">×</button>
                 </div>
                 <div class="header-actions">
+                    <button id="storeBtn" class="btn btn-store">🛒 Store</button>
                     <span id="userEmail" class="user-info"></span>
                     <button id="newNoteBtn" class="btn btn-primary">+ New Note</button>
                     <button id="saveAllBtn" class="btn btn-secondary">💾 Save All</button>
@@ -100,6 +101,47 @@
                     <h2>Start Writing</h2>
                     <p>Click "New Note" to create your first note</p>
                     <button id="createFirstNote" class="btn btn-primary">Create First Note</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Store Modal -->
+        <div id="storeModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🛒 Store</h2>
+                    <button id="closeStoreModal" class="modal-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="product-card">
+                        <div class="product-image">⭐</div>
+                        <h3>Premium Access</h3>
+                        <p class="product-description">Unlock all premium features including unlimited notes, advanced search, media attachments, and priority support.</p>
+                        <div class="product-price">$9.99</div>
+                        <button id="purchaseBtn" class="btn btn-premium btn-full" data-product-id="pdt_UrKdEbkyutltGJe3i5Zdy">
+                            Purchase Now
+                        </button>
+                    </div>
+                    <div id="purchaseStatus" class="purchase-status hidden">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Processing purchase...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Modal -->
+        <div id="successModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🎉 Purchase Successful!</h2>
+                    <button id="closeSuccessModal" class="modal-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <p>Thank you for your purchase! You now have access to premium features.</p>
+                    <button id="continueBtn" class="btn btn-primary btn-full">Continue</button>
                 </div>
             </div>
         </div>

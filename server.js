@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
@@ -17,6 +18,25 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Initialize Dodo Payments (will be loaded dynamically to handle import issues)
+let DodoPayments = null;
+const dodoApiKey = process.env.DODO_PAYMENTS_API_KEY;
+const dodoWebhookSecret = process.env.DODO_WEBHOOK_SECRET;
+
+// Dynamic import for Dodo Payments
+async function initializeDodoPayments() {
+  try {
+    const dodoModule = await import('dodopayments');
+    DodoPayments = dodoModule.default || dodoModule;
+    console.log('✅ Dodo Payments SDK initialized');
+  } catch (error) {
+    console.warn('⚠️ Dodo Payments SDK not available:', error.message);
+  }
+}
+
+// Initialize Dodo Payments on startup
+initializeDodoPayments();
 
 // Helper function to verify the storage bucket exists
 async function verifyBucketExists(supabaseClient) {
@@ -440,6 +460,220 @@ app.get('/api/search/partial', authenticateUser, async (req, res) => {
   }
 });
 
+// Payment Routes
+app.post('/api/payments/create', authenticateUser, async (req, res) => {
+  try {
+    if (!DodoPayments || !dodoApiKey) {
+      return res.status(500).json({ error: 'Payment system not configured' });
+    }
+
+    const { productId, quantity = 1, returnUrl } = req.body;
+    
+    if (!productId) {
+      return res.status(400).json({ error: 'Product ID is required' });
+    }
+
+    console.log('💳 Creating payment for user:', req.user.id, 'product:', productId);
+
+    const client = new DodoPayments({
+      bearerToken: dodoApiKey,
+    });
+
+    // Create payment link
+    const payment = await client.payments.create({
+      payment_link: true,
+      billing: {
+        city: 'City',
+        country: 'US',
+        state: 'State', 
+        street: 'Street',
+        zipcode: '00000'
+      },
+      customer: {
+        email: req.user.email,
+        name: req.user.email.split('@')[0],
+        customer_id: req.user.id
+      },
+      product_cart: [{
+        product_id: productId,
+        quantity: quantity
+      }],
+      return_url: returnUrl || `${req.protocol}://${req.get('host')}/payment-success`
+    });
+
+    console.log('✅ Payment link created:', payment.id);
+
+    // Store payment record in database
+    const { data: paymentRecord, error: dbError } = await supabase
+      .from('user_payments')
+      .insert({
+        user_id: req.user.id,
+        payment_id: payment.id,
+        product_id: productId,
+        amount: payment.amount || 0,
+        currency: payment.currency || 'USD',
+        status: 'pending',
+        payment_link: payment.payment_link
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('❌ Error saving payment record:', dbError);
+      // Continue anyway, payment link is still valid
+    }
+
+    res.json({
+      paymentId: payment.id,
+      paymentLink: payment.payment_link,
+      amount: payment.amount,
+      currency: payment.currency
+    });
+
+  } catch (error) {
+    console.error('💥 Payment creation error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create payment',
+      details: error.message 
+    });
+  }
+});
+
+// Webhook endpoint for payment updates
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    if (!dodoWebhookSecret) {
+      console.error('❌ Webhook secret not configured');
+      return res.status(500).json({ error: 'Webhook not configured' });
+    }
+
+    const signature = req.headers['dodo-signature'] || req.headers['x-dodo-signature'];
+    const payload = req.body;
+
+    console.log('🔔 Webhook received:', {
+      signature: signature ? 'present' : 'missing',
+      payloadSize: payload.length
+    });
+
+    // Verify webhook signature
+    if (signature && dodoWebhookSecret) {
+      const expectedSignature = crypto
+        .createHmac('sha256', dodoWebhookSecret)
+        .update(payload)
+        .digest('hex');
+      
+      const providedSignature = signature.replace('sha256=', '');
+      
+      if (expectedSignature !== providedSignature) {
+        console.error('❌ Webhook signature verification failed');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+    }
+
+    // Parse the payload
+    let event;
+    try {
+      event = JSON.parse(payload);
+    } catch (parseError) {
+      console.error('❌ Failed to parse webhook payload:', parseError);
+      return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
+
+    console.log('📨 Webhook event:', event.type, 'for payment:', event.data?.id);
+
+    // Handle different webhook events
+    switch (event.type) {
+      case 'payment.succeeded':
+      case 'payment.completed':
+        await handlePaymentSuccess(event.data);
+        break;
+      case 'payment.failed':
+        await handlePaymentFailed(event.data);
+        break;
+      default:
+        console.log('ℹ️ Unhandled webhook event type:', event.type);
+    }
+
+    res.status(200).json({ received: true });
+
+  } catch (error) {
+    console.error('💥 Webhook processing error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// Handle successful payment
+async function handlePaymentSuccess(paymentData) {
+  try {
+    console.log('✅ Processing successful payment:', paymentData.id);
+
+    // Update payment record
+    const { error: updateError } = await supabase
+      .from('user_payments')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        payment_data: paymentData
+      })
+      .eq('payment_id', paymentData.id);
+
+    if (updateError) {
+      console.error('❌ Error updating payment record:', updateError);
+    } else {
+      console.log('✅ Payment record updated successfully');
+    }
+
+  } catch (error) {
+    console.error('💥 Error handling payment success:', error);
+  }
+}
+
+// Handle failed payment
+async function handlePaymentFailed(paymentData) {
+  try {
+    console.log('❌ Processing failed payment:', paymentData.id);
+
+    // Update payment record
+    const { error: updateError } = await supabase
+      .from('user_payments')
+      .update({
+        status: 'failed',
+        payment_data: paymentData
+      })
+      .eq('payment_id', paymentData.id);
+
+    if (updateError) {
+      console.error('❌ Error updating payment record:', updateError);
+    } else {
+      console.log('✅ Failed payment record updated');
+    }
+
+  } catch (error) {
+    console.error('💥 Error handling payment failure:', error);
+  }
+}
+
+// Get user purchase history (simplified)
+app.get('/api/payments/history', authenticateUser, async (req, res) => {
+  try {
+    // Get recent payments
+    const { data: payments } = await supabase
+      .from('user_payments')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    res.json({
+      payments: payments || []
+    });
+
+  } catch (error) {
+    console.error('💥 Error getting payment history:', error);
+    res.status(500).json({ error: 'Failed to get payment history' });
+  }
+});
+
 // Storage Bucket Management
 app.post('/api/storage/setup', authenticateUser, async (req, res) => {
   try {
@@ -747,6 +981,12 @@ app.delete('/api/media/:mediaId', authenticateUser, async (req, res) => {
 // Serve the main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Payment success page
+app.get('/payment-success', (req, res) => {
+  // Redirect to main page with success parameter
+  res.redirect('/?payment=success');
 });
 
 app.listen(PORT, () => {
